@@ -1,0 +1,54 @@
+***Project Work Summary for Today (2026-08-20)
+
+Today’s commit: Day-3
+Commit ID: 954c810
+
+This is the work I added to the project today:
+
+1. Built a basic Gemini-powered chatbot
+I created Chatbot.py, which is a simple conversational chatbot using LangChain and Google Generative AI.
+The file includes:
+- import of ChatGoogleGenerativeAI from langchain_google_genai
+- a prompt setup using LangChain message types
+- loading environment variables using dotenv
+- a chat history list with SystemMessage as the initial context
+- a loop that takes user input, sends it to the model, and appends the AI response to the conversation history
+
+This shows that today’s focus was on testing a real LLM interaction loop and understanding how chat conversations can be managed in LangChain.
+
+2. Added a sample chat history file
+I created Prompts/chat_history.txt with a short conversation example:
+- a human message asking for a refund
+- an AI message confirming the refund request was initiated
+
+This acts as a sample for message-based conversation flow and demonstrates how chat histories can be stored as plain text or later used as prompt context.
+
+3. Added message-based interaction example
+I created Prompts/massages.py, which demonstrates how to pass a list of messages to the model instead of a single prompt string.
+The file includes:
+- SystemMessage for assistant behavior
+- HumanMessage for the user prompt
+- model.invoke(massages) to generate the response
+- appending the AI result to the message list
+
+This helped in learning how LangChain handles multi-turn conversations through message objects.
+
+4. Added a prompt template with chat history placeholder
+I created Prompts/message_placeholder.py, which uses ChatPromptTemplate and MessagesPlaceholder.
+This file shows:
+- a system prompt defining the assistant as a helpful customer support agent
+- a placeholder for prior chat history
+- a human query to be included dynamically
+- reading chat history from a text file and passing it into the prompt
+
+This was an important step in learning how to preserve context across previous messages and feed it into a prompt template.
+
+Overall, today’s work was focused on building foundational LangChain + LLM interaction examples:
+- creating a simple chatbot,
+- testing chat message structures,
+- storing conversation history,
+- and using prompt templates that include previous context.
+
+This commit reflects hands-on learning of conversational AI basics in the project, especially around memory, message handling, and integrating Gemini models with LangChain.
+
+
