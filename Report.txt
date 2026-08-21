@@ -53,5 +53,92 @@ This commit reflects hands-on learning of conversational AI basics in the projec
 
 
 
-
 --------------------DAY 4---------------------
+
+Project Work Summary for Today (2026-08-21)
+
+Today’s commit: Day-4
+
+Commit ID: 4950f83
+
+This is the work I added to the project today:
+
+1. Learned and implemented Structured Output
+
+Today I focused on understanding how Large Language Models can return responses in a predefined and structured format instead of generating only free-form text.
+
+I created a new Structured Output folder and added examples to understand how structured data can be defined and generated using Python, Pydantic, TypedDict, and LangChain.
+
+2. Created a Pydantic structured data example
+
+I created Structured Output/Pydantic_Demo.py to understand how Pydantic can be used to define and validate structured data.
+
+The file includes:
+
+* BaseModel from Pydantic
+* EmailStr for email validation
+* Optional fields using Optional[int]
+* A Student model with name, age, and email fields
+* Creating a Student object from a dictionary
+* Validation and structured representation of the data
+
+This helped me understand how Python data models can be used to ensure that the input follows a predefined structure.
+
+3. Implemented structured output with Gemini
+
+I created Structured Output/With_Structure_output.py to experiment with structured responses from the Gemini model using LangChain.
+
+The implementation includes:
+
+* ChatGoogleGenerativeAI for connecting with the Gemini model
+* Loading environment variables using dotenv
+* TypedDict for defining the expected response structure
+* Annotated fields with descriptions
+* Literal values for restricting sentiment to specific categories
+* Optional list fields for skills
+* Defining fields for summary, sentiment, name, education, skills, and projects
+* Using model.with_structured_output() to force the model to follow the defined schema
+
+4. Extracted structured information from a resume
+
+I used a sample resume as input and asked the Gemini model to extract specific information from it.
+
+The structured output schema was designed to return:
+
+* Summary
+* Sentiment
+* Name
+* Education
+* Skills
+* Projects
+
+This demonstrated how an LLM can be used not only for generating text but also for extracting and organizing useful information into a predictable structure.
+
+5. Learned about schema-based LLM responses
+
+Today I understood the difference between normal LLM responses and structured responses.
+
+A normal LLM may return information in different formats depending on the prompt, while structured output allows us to define the expected fields and data types beforehand.
+
+This is useful when building real-world AI applications where the model's response needs to be consumed programmatically by another part of the application.
+
+6. Organized the project structure
+
+I also moved Chatbot.py into the Prompts folder to keep the repository better organized according to the concepts being learned.
+
+Overall, today’s work was focused on understanding and implementing structured outputs with Generative AI.
+
+The main concepts I learned today were:
+
+* Pydantic models
+* Data validation
+* TypedDict
+* Annotated
+* Optional fields
+* Literal types
+* Structured LLM responses
+* Gemini integration with LangChain
+* model.with_structured_output()
+* Extracting structured information from unstructured text
+
+This commit helped me understand how LLM outputs can be converted from free-form responses into structured and predictable data that can be easily used in real-world AI applications.
