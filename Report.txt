@@ -52,3 +52,6 @@ Overall, today’s work was focused on building foundational LangChain + LLM int
 This commit reflects hands-on learning of conversational AI basics in the project, especially around memory, message handling, and integrating Gemini models with LangChain.
 
 
+
+
+--------------------DAY 4---------------------
