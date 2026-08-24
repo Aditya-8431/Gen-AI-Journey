@@ -22,5 +22,5 @@ result= structured_output.invoke("""
 
 print(result)
 print(result['Name'])
-
+print(result['Project'])
 print(result['sentiment'])

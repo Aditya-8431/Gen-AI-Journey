@@ -15,10 +15,11 @@ chat_history = [
 
 while True:
     user_input= input("You: ")
-    chat_history.append(HumanMessage(content=user_input))
     if user_input== "exit":
         break
-    result= model.invoke(user_input)
+    chat_history.append(HumanMessage(content=user_input))
+    
+    result= model.invoke(chat_history)
     chat_history.append(AIMessage(content=result.text))
-  #  print("AI: ", result.content)
+    print("AI: ", result.content)
     print("Chat History: ", chat_history)
