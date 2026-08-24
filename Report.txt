@@ -142,3 +142,143 @@ The main concepts I learned today were:
 * Extracting structured information from unstructured text
 
 This commit helped me understand how LLM outputs can be converted from free-form responses into structured and predictable data that can be easily used in real-world AI applications.
+
+
+
+# Day-5: LangChain Chains
+
+## Overview
+
+Today, I continued my Generative AI learning journey by exploring **Chains in LangChain**. I learned how individual components such as prompts, Gemini models, output parsers, and decision-making logic can be connected together to create complete AI workflows.
+
+I implemented four different types of chains and understood how the data flows through each workflow.
+
+---
+
+## Topics Covered
+
+### 1. Simple Chain
+
+I learned how to create a basic LangChain pipeline by connecting a prompt, Gemini model, and output parser.
+
+The basic workflow is:
+
+**Prompt → Gemini Model → Output Parser → Output**
+
+I used `PromptTemplate` to create dynamic prompts and `StrOutputParser` to convert the model response into plain text.
+
+---
+
+### 2. Sequential Chain
+
+I learned how to execute multiple operations **one after another**, where the output of one step can be passed to the next step.
+
+For example:
+
+**Input → Chain 1 → Chain 2 → Final Output**
+
+This helped me understand how complex AI tasks can be divided into smaller steps and executed sequentially.
+
+---
+
+### 3. Parallel Chain
+
+I explored `RunnableParallel` to execute multiple independent chains simultaneously.
+
+For example, the same input can be processed by multiple chains:
+
+**Input → Summary Chain**
+**Input → Analysis Chain**
+**Input → Key Points Chain**
+
+The results can then be combined into a single output.
+
+This is useful when multiple independent tasks need to be performed on the same input.
+
+---
+
+### 4. Conditional Chain
+
+I learned how to create a workflow where the next step depends on a condition.
+
+Using `RunnableBranch`, different chains can be executed depending on the result of a previous step.
+
+For example:
+
+**Input → Classification → Condition → Appropriate Chain**
+
+A positive result can be sent to one chain, while a negative result can be sent to another chain.
+
+This introduced me to decision-based workflows in LangChain.
+
+---
+
+## Technologies and Components Used
+
+Today I worked with:
+
+* Python
+* LangChain
+* Google Gemini
+* `ChatGoogleGenerativeAI`
+* `PromptTemplate`
+* `StrOutputParser`
+* `RunnableParallel`
+* `RunnableBranch`
+* LangChain Expression Language (LCEL)
+* `.env` for API configuration
+
+---
+
+## Implementation
+
+I organized today's implementations inside the `Chains` folder:
+
+```text
+Chains/
+│
+├── simple_chain.py
+├── sequential_chain.py
+├── Parallel_chains.py
+└── Conditional_chain.py
+```
+
+Each file contains a different type of LangChain workflow that I studied and implemented.
+
+---
+
+## Key Learning
+
+The major takeaway from today's work was understanding that an LLM application does not have to be a single model call.
+
+LangChain allows different components to be connected into workflows:
+
+```text
+Prompt
+   ↓
+LLM
+   ↓
+Parser
+   ↓
+Next Step
+```
+
+Depending on the requirement, the workflow can become **sequential, parallel, or conditional**.
+
+This is an important step toward building more complex Generative AI applications.
+
+---
+
+## Today's Progress
+
+Today I moved from simply **calling an LLM** to understanding how to **design workflows around an LLM**.
+
+### Learning Progress
+
+**Simple Chain → Sequential Chain → Parallel Chain → Conditional Chain**
+
+These concepts will serve as a foundation for the next stages of my Generative AI journey, especially for building more advanced applications using LangChain.
+
+---
+
+**Day-5 Complete — Learning, Implementing, and Experimenting with LangChain Chains.**
