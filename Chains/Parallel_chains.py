@@ -29,7 +29,8 @@ prompt2=PromptTemplate(
 
 )
 prompt3=PromptTemplate(
-    template="Merge the provided Notes and quiz into a single Document /n notes -> {notes} and quiz -> {quiz}",
+    template="Merge the provided Notes and quiz into a single Document /n notes ->" \
+    " {notes} and quiz -> {quiz}",
 
     input_variables=['notes','quiz']
 
