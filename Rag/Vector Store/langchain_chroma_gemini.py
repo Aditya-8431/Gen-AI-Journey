@@ -62,27 +62,28 @@ docs = [doc1, doc2, doc3, doc4, doc5]
 # Add documents
 ids = vector_store.add_documents(docs)
 
-print("\nDocuments added successfully!")
-print(ids)
+# print("\nDocuments added successfully!")
+# print(ids)
 
 
 # View documents
-print("\nAll Documents:")
+# print("\nAll Documents:")
 
-result = vector_store.get(
-    include=["embeddings", "documents", "metadatas"]
-)
-
-print(result)
-
-
-# # Search documents
-# print("\nSimilarity Search:")
-
-# result = vector_store.similarity_search(
-#     query="Who among these are a bowler?",
-#     k=2
+# result = vector_store.get(
+#     include=["embeddings", "documents", "metadatas"]
 # )
+
+# print(result)
+
+
+# Search documents
+print("\nSimilarity Search:")
+
+result = vector_store.similarity_search(
+    query="Who among these are a bowler?",
+    k=2
+)
+print(result)
 
 # for doc in result:
 #     print("\nDocument:")
