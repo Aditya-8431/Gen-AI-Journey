@@ -24,3 +24,12 @@ python-dotenv
 # Machine Learning Utilities
 numpy
 scikit-learn
+
+#Rag base Applications
+youtube-transcript-api
+langchain
+langchain-community
+langchain-google-genai
+langchain-text-splitters
+faiss-cpu
+python-dotenv
