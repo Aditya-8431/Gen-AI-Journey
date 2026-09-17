@@ -38,16 +38,16 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
     raise ValueError(
-        f"\n❌ GEMINI_API_KEY not found.\n"
+        f"\n GEMINI_API_KEY not found.\n"
         f"Expected .env file at:\n{ENV_PATH}\n\n"
         f"Your .env should contain:\n"
         f"GEMINI_API_KEY=your_key_here"
     )
 
 
-# ============================================================
+
 # 2. EXTRACT YOUTUBE VIDEO ID
-# ============================================================
+
 
 def extract_video_id(url: str) -> str:
 
@@ -87,9 +87,8 @@ def extract_video_id(url: str) -> str:
     )
 
 
-# ============================================================
 # 3. GET YOUTUBE TRANSCRIPT
-# ============================================================
+
 
 def get_transcript(video_id: str) -> str:
 
@@ -140,9 +139,8 @@ def get_transcript(video_id: str) -> str:
         )
 
 
-# ============================================================
+
 # 4. TEXT SPLITTING
-# ============================================================
 
 def split_transcript(transcript: str):
 
@@ -156,9 +154,8 @@ def split_transcript(transcript: str):
     )
 
 
-# ============================================================
+
 # 5. GEMINI EMBEDDINGS
-# ============================================================
 
 def create_embeddings():
 
@@ -168,9 +165,9 @@ def create_embeddings():
     )
 
 
-# ============================================================
+
 # 6. RATE-LIMIT SAFE GEMINI EMBEDDING + FAISS
-# ============================================================
+
 
 def create_vector_store(documents):
 
@@ -266,10 +263,8 @@ def create_vector_store(documents):
 
     return vector_store
 
-
-# ============================================================
 # 7. RETRIEVER
-# ============================================================
+
 
 def create_retriever(vector_store):
 
@@ -281,9 +276,8 @@ def create_retriever(vector_store):
     )
 
 
-# ============================================================
 # 8. GEMINI CHAT MODEL
-# ============================================================
+
 
 def create_llm():
 
@@ -293,9 +287,9 @@ def create_llm():
     )
 
 
-# ============================================================
+
 # 9. RAG PROMPT
-# ============================================================
+
 
 prompt = PromptTemplate(
     template="""
@@ -326,9 +320,9 @@ Answer:
 )
 
 
-# ============================================================
+
 # 10. CLEAN GEMINI RESPONSE
-# ============================================================
+
 
 def extract_response_text(response) -> str:
     """
@@ -342,16 +336,16 @@ def extract_response_text(response) -> str:
     - AIMessage-like objects
     """
 
-    # --------------------------------------------------------
+    #
     # Case 1: Plain string
-    # --------------------------------------------------------
+    
 
     if isinstance(response, str):
         return response.strip()
 
-    # --------------------------------------------------------
+    
     # Case 2: AIMessage / response object
-    # --------------------------------------------------------
+    
 
     content = getattr(
         response,
@@ -359,16 +353,16 @@ def extract_response_text(response) -> str:
         response,
     )
 
-    # --------------------------------------------------------
+    
     # Case 3: content is already a string
-    # --------------------------------------------------------
+    
 
     if isinstance(content, str):
         return content.strip()
 
-    # --------------------------------------------------------
+    
     # Case 4: content is a list of blocks
-    # --------------------------------------------------------
+    
 
     if isinstance(content, list):
 
@@ -406,16 +400,16 @@ def extract_response_text(response) -> str:
                 text_parts
             ).strip()
 
-    # --------------------------------------------------------
+    
     # Fallback
-    # --------------------------------------------------------
+    
 
     return str(content).strip()
 
 
-# ============================================================
+
 # 11. ANSWER QUESTION USING RAG
-# ============================================================
+
 
 def answer_question(
     retriever,
@@ -456,9 +450,8 @@ def answer_question(
     return answer
 
 
-# ============================================================
+
 # 12. MAIN APPLICATION
-# ============================================================
 
 def main():
 
@@ -476,21 +469,21 @@ def main():
 
     try:
 
-        # ----------------------------------------------------
+        
         # STEP 2 - VIDEO ID
-        # ----------------------------------------------------
+        
 
         video_id = extract_video_id(
             url
         )
 
         print(
-            f"\n✅ Video ID: {video_id}"
+            f"\nVideo ID: {video_id}"
         )
 
-        # ----------------------------------------------------
+        
         # STEP 3 - TRANSCRIPT
-        # ----------------------------------------------------
+        
 
         print(
             "\n📥 Fetching transcript..."
@@ -508,9 +501,9 @@ def main():
             f"   Characters: {len(transcript):,}"
         )
 
-        # ----------------------------------------------------
+        
         # STEP 4 - SPLIT
-        # ----------------------------------------------------
+        
 
         print(
             "\n✂️ Splitting transcript..."
@@ -524,9 +517,9 @@ def main():
             f"✅ Created {len(documents)} chunks."
         )
 
-        # ----------------------------------------------------
+        
         # STEP 5 - EMBEDDINGS + FAISS
-        # ----------------------------------------------------
+        
 
         print(
             "\n🧠 Building vector database..."
@@ -540,9 +533,9 @@ def main():
             "\n✅ FAISS vector store ready."
         )
 
-        # ----------------------------------------------------
+        
         # STEP 6 - RETRIEVER
-        # ----------------------------------------------------
+        
 
         retriever = create_retriever(
             vector_store
@@ -552,9 +545,9 @@ def main():
             "✅ Retriever ready."
         )
 
-        # ----------------------------------------------------
+        
         # STEP 7 - GEMINI
-        # ----------------------------------------------------
+        
 
         print(
             "\n🤖 Initializing Gemini..."
@@ -566,9 +559,9 @@ def main():
             "✅ Gemini ready."
         )
 
-        # ----------------------------------------------------
+        
         # SYSTEM READY
-        # ----------------------------------------------------
+        
 
         print("\n" + "=" * 65)
         print("              ✅ RAG SYSTEM READY")
@@ -582,9 +575,9 @@ def main():
             "Type 'exit' to close."
         )
 
-        # ----------------------------------------------------
+        
         # CHAT LOOP
-        # ----------------------------------------------------
+        
 
         while True:
 
@@ -642,9 +635,8 @@ def main():
         print(str(e))
 
 
-# ============================================================
 # 13. RUN APPLICATION
-# ============================================================
+
 
 if __name__ == "__main__":
     main()
