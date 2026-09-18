@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 from dotenv import load_dotenv
@@ -24,32 +25,76 @@ from langchain_community.vectorstores import FAISS
 
 from langchain_core.prompts import PromptTemplate
 
+from langchain_core.runnables import (
+    RunnableLambda,
+    RunnableParallel,
+    RunnablePassthrough,
+)
+
+from langchain_core.output_parsers import StrOutputParser
+
 
 # ============================================================
 # 1. ENVIRONMENT
 # ============================================================
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ENV_PATH = os.path.join(BASE_DIR, ".env")
+BASE_DIR = Path(__file__).resolve().parent
+ENV_FILE = BASE_DIR / ".env"
 
-load_dotenv(ENV_PATH)
+load_dotenv(ENV_FILE)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
     raise ValueError(
-        f"\n GEMINI_API_KEY not found.\n"
-        f"Expected .env file at:\n{ENV_PATH}\n\n"
-        f"Your .env should contain:\n"
-        f"GEMINI_API_KEY=your_key_here"
+        "\n❌ GEMINI_API_KEY not found.\n"
+        f"Expected .env file at:\n{ENV_FILE}\n\n"
+        "Your .env should contain:\n"
+        "GEMINI_API_KEY=your_api_key_here"
     )
 
 
+# ============================================================
+# 2. CONFIGURATION
+# ============================================================
 
-# 2. EXTRACT YOUTUBE VIDEO ID
+# FAISS indexes will be stored here.
+VECTOR_DB_DIR = BASE_DIR / "vectorstores"
+VECTOR_DB_DIR.mkdir(exist_ok=True)
 
+# Gemini free-tier friendly embedding settings.
+EMBED_BATCH_SIZE = 10
+EMBED_BATCH_DELAY = 8
+EMBED_RETRY_DELAY = 60
+
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 200
+TOP_K = 4
+
+
+# ============================================================
+# 3. GEMINI MODELS
+# ============================================================
+
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="gemini-embedding-001",
+    google_api_key=GEMINI_API_KEY,
+)
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-3.6-flash",
+    google_api_key=GEMINI_API_KEY,
+)
+
+
+# ============================================================
+# 4. YOUTUBE VIDEO ID
+# ============================================================
 
 def extract_video_id(url: str) -> str:
+    """
+    Extract YouTube video ID from common URL formats.
+    """
 
     parsed_url = urlparse(url)
 
@@ -58,21 +103,23 @@ def extract_video_id(url: str) -> str:
     if hostname:
         hostname = hostname.lower()
 
-    # Standard YouTube URL
+    # Standard YouTube URLs
     if hostname in {
-        "www.youtube.com",
         "youtube.com",
+        "www.youtube.com",
         "m.youtube.com",
     }:
 
-        query_params = parse_qs(parsed_url.query)
+        query_params = parse_qs(
+            parsed_url.query
+        )
 
         video_ids = query_params.get("v")
 
         if video_ids:
             return video_ids[0]
 
-    # Short YouTube URL
+    # Short YouTube URLs
     if hostname == "youtu.be":
 
         video_id = parsed_url.path.strip("/")
@@ -87,10 +134,14 @@ def extract_video_id(url: str) -> str:
     )
 
 
-# 3. GET YOUTUBE TRANSCRIPT
-
+# ============================================================
+# 5. GET TRANSCRIPT
+# ============================================================
 
 def get_transcript(video_id: str) -> str:
+    """
+    Fetch English transcript and convert it to one string.
+    """
 
     api = YouTubeTranscriptApi()
 
@@ -107,6 +158,7 @@ def get_transcript(video_id: str) -> str:
         )
 
         if not transcript.strip():
+
             raise RuntimeError(
                 "Transcript is empty."
             )
@@ -122,7 +174,7 @@ def get_transcript(video_id: str) -> str:
     except NoTranscriptFound:
 
         raise RuntimeError(
-            "No English transcript was found for this video."
+            "No English transcript was found."
         )
 
     except VideoUnavailable:
@@ -139,14 +191,15 @@ def get_transcript(video_id: str) -> str:
         )
 
 
-
-# 4. TEXT SPLITTING
+# ============================================================
+# 6. TEXT SPLITTING
+# ============================================================
 
 def split_transcript(transcript: str):
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
     )
 
     return splitter.create_documents(
@@ -154,46 +207,38 @@ def split_transcript(transcript: str):
     )
 
 
+# ============================================================
+# 7. RATE-LIMIT SAFE GEMINI EMBEDDING
+# ============================================================
 
-# 5. GEMINI EMBEDDINGS
+def generate_embeddings(documents):
+    """
+    Generate Gemini embeddings in controlled batches.
 
-def create_embeddings():
-
-    return GoogleGenerativeAIEmbeddings(
-        model="gemini-embedding-001",
-        google_api_key=GEMINI_API_KEY,
-    )
-
-
-
-# 6. RATE-LIMIT SAFE GEMINI EMBEDDING + FAISS
-
-
-def create_vector_store(documents):
-
-    embeddings = create_embeddings()
+    This prevents the application from sending all
+    transcript chunks at once.
+    """
 
     total = len(documents)
 
-    print(f"\nTotal chunks to embed: {total}")
-
-    # Keep batches conservative for Gemini free-tier limits.
-    batch_size = 20
-
     all_vectors = []
 
-    for start in range(0, total, batch_size):
+    for start in range(
+        0,
+        total,
+        EMBED_BATCH_SIZE
+    ):
 
         end = min(
-            start + batch_size,
-            total,
+            start + EMBED_BATCH_SIZE,
+            total
         )
 
-        batch_docs = documents[start:end]
+        batch = documents[start:end]
 
         print(
-            f"\n🧠 Embedding chunks "
-            f"{start + 1}-{end} of {total}..."
+            f"   Embedding chunks "
+            f"{start + 1}-{end}/{total}"
         )
 
         while True:
@@ -203,56 +248,100 @@ def create_vector_store(documents):
                 vectors = embeddings.embed_documents(
                     [
                         doc.page_content
-                        for doc in batch_docs
+                        for doc in batch
                     ]
                 )
 
-                all_vectors.extend(vectors)
-
-                print("✅ Batch completed.")
+                all_vectors.extend(
+                    vectors
+                )
 
                 break
 
             except Exception as e:
 
-                error_text = str(e)
+                error_message = str(e)
 
                 if (
-                    "429" in error_text
-                    or "RESOURCE_EXHAUSTED" in error_text
+                    "429" in error_message
+                    or "RESOURCE_EXHAUSTED"
+                    in error_message
                 ):
 
                     print(
-                        "\n⚠️ Gemini embedding rate limit reached."
+                        "   ⚠️ Gemini embedding quota "
+                        "temporarily reached."
                     )
 
                     print(
-                        "Waiting 60 seconds before retry..."
+                        f"   Waiting "
+                        f"{EMBED_RETRY_DELAY} seconds..."
                     )
 
-                    time.sleep(60)
+                    time.sleep(
+                        EMBED_RETRY_DELAY
+                    )
 
                 else:
 
                     raise
 
-        # Small delay between batches.
+        # Avoid hitting the free-tier limit.
         if end < total:
 
-            time.sleep(5)
+            time.sleep(
+                EMBED_BATCH_DELAY
+            )
 
-    # Build FAISS using precomputed vectors.
+    return all_vectors
+
+
+# ============================================================
+# 8. FAISS CACHE
+# ============================================================
+
+def get_vector_db_path(video_id: str) -> Path:
+
+    return VECTOR_DB_DIR / video_id
+
+
+def index_exists(video_id: str) -> bool:
+
+    db_path = get_vector_db_path(
+        video_id
+    )
+
+    return (
+        (db_path / "index.faiss").exists()
+        and
+        (db_path / "index.pkl").exists()
+    )
+
+
+def create_vector_store(
+    documents,
+    video_id: str,
+):
+
+    vectors = generate_embeddings(
+        documents
+    )
+
     text_embeddings = [
         (
             documents[i].page_content,
-            all_vectors[i],
+            vectors[i]
         )
-        for i in range(total)
+        for i in range(
+            len(documents)
+        )
     ]
 
     metadatas = [
         documents[i].metadata
-        for i in range(total)
+        for i in range(
+            len(documents)
+        )
     ]
 
     vector_store = FAISS.from_embeddings(
@@ -261,35 +350,214 @@ def create_vector_store(documents):
         metadatas=metadatas,
     )
 
+    db_path = get_vector_db_path(
+        video_id
+    )
+
+    db_path.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    vector_store.save_local(
+        str(db_path)
+    )
+
+    print(
+        "✅ FAISS index saved."
+    )
+
     return vector_store
 
-# 7. RETRIEVER
 
+def load_vector_store(video_id: str):
+
+    db_path = get_vector_db_path(
+        video_id
+    )
+
+    return FAISS.load_local(
+        str(db_path),
+        embeddings,
+        allow_dangerous_deserialization=True,
+    )
+
+
+# ============================================================
+# 9. INDEXING CHAIN FUNCTIONS
+# ============================================================
+
+def prepare_video(url: str):
+
+    video_id = extract_video_id(
+        url
+    )
+
+    return {
+        "url": url,
+        "video_id": video_id,
+    }
+
+
+def fetch_video_transcript(data):
+
+    video_id = data["video_id"]
+
+    print(
+        f"\n🎥 Video ID: {video_id}"
+    )
+
+    # --------------------------------------------------------
+    # IMPORTANT:
+    # Don't embed the same video again.
+    # --------------------------------------------------------
+
+    if index_exists(video_id):
+
+        print(
+            "✅ Existing FAISS index found."
+        )
+
+        return {
+            **data,
+            "cached": True,
+        }
+
+    print(
+        "\n📥 Fetching transcript..."
+    )
+
+    transcript = get_transcript(
+        video_id
+    )
+
+    print(
+        f"✅ Transcript loaded: "
+        f"{len(transcript):,} characters"
+    )
+
+    return {
+        **data,
+        "transcript": transcript,
+        "cached": False,
+    }
+
+
+def split_video_transcript(data):
+
+    # If cached, no need to split again.
+    if data["cached"]:
+
+        return data
+
+    print(
+        "\n✂️ Splitting transcript..."
+    )
+
+    documents = split_transcript(
+        data["transcript"]
+    )
+
+    print(
+        f"✅ Created "
+        f"{len(documents)} chunks."
+    )
+
+    return {
+        **data,
+        "documents": documents,
+    }
+
+
+def build_video_index(data):
+
+    video_id = data["video_id"]
+
+    # --------------------------------------------------------
+    # Load existing index
+    # --------------------------------------------------------
+
+    if data["cached"]:
+
+        print(
+            "\n📦 Loading existing FAISS index..."
+        )
+
+        vector_store = load_vector_store(
+            video_id
+        )
+
+        print(
+            "✅ Existing vector store loaded."
+        )
+
+        return {
+            **data,
+            "vector_store": vector_store,
+        }
+
+    # --------------------------------------------------------
+    # Create new index
+    # --------------------------------------------------------
+
+    documents = data["documents"]
+
+    print(
+        "\n🧠 Creating Gemini embeddings..."
+    )
+
+    vector_store = create_vector_store(
+        documents,
+        video_id,
+    )
+
+    print(
+        "✅ Vector store created."
+    )
+
+    return {
+        **data,
+        "vector_store": vector_store,
+    }
+
+
+# ============================================================
+# 10. COMPLETE INDEXING CHAIN
+# ============================================================
+
+indexing_chain = (
+    RunnableLambda(prepare_video)
+    | RunnableLambda(fetch_video_transcript)
+    | RunnableLambda(split_video_transcript)
+    | RunnableLambda(build_video_index)
+)
+
+
+# ============================================================
+# 11. RETRIEVER
+# ============================================================
 
 def create_retriever(vector_store):
 
     return vector_store.as_retriever(
         search_type="similarity",
         search_kwargs={
-            "k": 4,
+            "k": TOP_K
         },
     )
 
 
-# 8. GEMINI CHAT MODEL
+def format_docs(docs):
 
-
-def create_llm():
-
-    return ChatGoogleGenerativeAI(
-        model="gemini-3.6-flash",
-        google_api_key=GEMINI_API_KEY,
+    return "\n\n".join(
+        doc.page_content
+        for doc in docs
     )
 
 
-
-# 9. RAG PROMPT
-
+# ============================================================
+# 12. RAG PROMPT
+# ============================================================
 
 prompt = PromptTemplate(
     template="""
@@ -298,7 +566,7 @@ about a YouTube video.
 
 Answer ONLY using the provided transcript context.
 
-Do not use outside knowledge.
+Do NOT use outside knowledge.
 
 If the answer cannot be found in the transcript,
 say exactly:
@@ -320,64 +588,38 @@ Answer:
 )
 
 
+# ============================================================
+# 13. CLEAN GEMINI OUTPUT
+# ============================================================
 
-# 10. CLEAN GEMINI RESPONSE
-
-
-def extract_response_text(response) -> str:
+def clean_response(content):
     """
-    Convert different Gemini/LangChain response formats
-    into a normal Python string.
+    Gemini may return content as a string or
+    a list of content blocks.
 
-    Handles:
-    - plain string
-    - list of content blocks
-    - dictionaries containing text
-    - AIMessage-like objects
+    Convert everything to readable text.
     """
 
-    #
-    # Case 1: Plain string
-    
+    if isinstance(
+        content,
+        str
+    ):
 
-    if isinstance(response, str):
-        return response.strip()
-
-    
-    # Case 2: AIMessage / response object
-    
-
-    content = getattr(
-        response,
-        "content",
-        response,
-    )
-
-    
-    # Case 3: content is already a string
-    
-
-    if isinstance(content, str):
         return content.strip()
 
-    
-    # Case 4: content is a list of blocks
-    
-
-    if isinstance(content, list):
+    if isinstance(
+        content,
+        list
+    ):
 
         text_parts = []
 
         for block in content:
 
-            # Example:
-            # {
-            #   "type": "text",
-            #   "text": "...",
-            #   "_text": "..."
-            # }
-
-            if isinstance(block, dict):
+            if isinstance(
+                block,
+                dict
+            ):
 
                 text = (
                     block.get("text")
@@ -386,198 +628,141 @@ def extract_response_text(response) -> str:
                 )
 
                 if text:
+
                     text_parts.append(
                         str(text)
                     )
 
-            elif isinstance(block, str):
+            elif isinstance(
+                block,
+                str
+            ):
 
-                text_parts.append(block)
+                text_parts.append(
+                    block
+                )
 
-        if text_parts:
-
-            return "\n".join(
-                text_parts
-            ).strip()
-
-    
-    # Fallback
-    
+        return "\n".join(
+            text_parts
+        ).strip()
 
     return str(content).strip()
 
 
+# ============================================================
+# 14. COMPLETE RAG CHAIN
+# ============================================================
 
-# 11. ANSWER QUESTION USING RAG
+def build_rag_chain(retriever):
 
-
-def answer_question(
-    retriever,
-    llm,
-    question: str,
-):
-
-    # Retrieve relevant transcript chunks
-    retrieved_docs = retriever.invoke(
-        question
+    rag_chain = (
+        RunnableParallel(
+            {
+                "context": (
+                    retriever
+                    | RunnableLambda(format_docs)
+                ),
+                "question": RunnablePassthrough(),
+            }
+        )
+        | prompt
+        | llm
+        | StrOutputParser()
+        | RunnableLambda(clean_response)
     )
 
-    # Build context
-    context = "\n\n".join(
-        doc.page_content
-        for doc in retrieved_docs
-    )
-
-    # Create final prompt
-    final_prompt = prompt.invoke(
-        {
-            "context": context,
-            "question": question,
-        }
-    )
-
-    # Ask Gemini
-    response = llm.invoke(
-        final_prompt
-    )
-
-    # IMPORTANT:
-    # Extract ONLY readable text.
-    answer = extract_response_text(
-        response
-    )
-
-    return answer
+    return rag_chain
 
 
-
-# 12. MAIN APPLICATION
+# ============================================================
+# 15. MAIN APPLICATION
+# ============================================================
 
 def main():
 
-    print("\n" + "=" * 65)
-    print("             🎥 YOUTUBE VIDEO RAG CHAT")
-    print("=" * 65)
+    print("\n")
+    print("=" * 70)
+    print("                 🎥 VIDEO RAG CHAT")
+    print("=" * 70)
 
     # --------------------------------------------------------
-    # STEP 1 - URL
+    # Get YouTube URL
     # --------------------------------------------------------
 
     url = input(
         "\nPaste YouTube video URL:\n> "
     ).strip()
 
+    if not url:
+
+        print(
+            "\n❌ URL cannot be empty."
+        )
+
+        return
+
     try:
 
-        
-        # STEP 2 - VIDEO ID
-        
+        # ====================================================
+        # INDEXING CHAIN
+        # ====================================================
 
-        video_id = extract_video_id(
+        print(
+            "\n🚀 Running indexing chain..."
+        )
+
+        indexed_data = indexing_chain.invoke(
             url
         )
 
-        print(
-            f"\nVideo ID: {video_id}"
-        )
+        vector_store = indexed_data[
+            "vector_store"
+        ]
 
-        
-        # STEP 3 - TRANSCRIPT
-        
-
-        print(
-            "\n📥 Fetching transcript..."
-        )
-
-        transcript = get_transcript(
-            video_id
-        )
-
-        print(
-            "✅ Transcript fetched successfully."
-        )
-
-        print(
-            f"   Characters: {len(transcript):,}"
-        )
-
-        
-        # STEP 4 - SPLIT
-        
-
-        print(
-            "\n✂️ Splitting transcript..."
-        )
-
-        documents = split_transcript(
-            transcript
-        )
-
-        print(
-            f"✅ Created {len(documents)} chunks."
-        )
-
-        
-        # STEP 5 - EMBEDDINGS + FAISS
-        
-
-        print(
-            "\n🧠 Building vector database..."
-        )
-
-        vector_store = create_vector_store(
-            documents
-        )
-
-        print(
-            "\n✅ FAISS vector store ready."
-        )
-
-        
-        # STEP 6 - RETRIEVER
-        
+        # ====================================================
+        # RETRIEVER
+        # ====================================================
 
         retriever = create_retriever(
             vector_store
         )
 
         print(
-            "✅ Retriever ready."
+            "\n✅ Retriever ready."
         )
 
-        
-        # STEP 7 - GEMINI
-        
+        # ====================================================
+        # RAG CHAIN
+        # ====================================================
 
-        print(
-            "\n🤖 Initializing Gemini..."
+        rag_chain = build_rag_chain(
+            retriever
         )
 
-        llm = create_llm()
-
         print(
-            "✅ Gemini ready."
+            "\n✅ RAG chain created."
         )
 
-        
-        # SYSTEM READY
-        
+        # ====================================================
+        # READY
+        # ====================================================
 
-        print("\n" + "=" * 65)
-        print("              ✅ RAG SYSTEM READY")
-        print("=" * 65)
+        print("\n")
+        print("=" * 70)
+        print("                 ✅ VIDEO READY")
+        print("=" * 70)
 
         print(
-            "\nAsk questions about the video."
+            "\nAsk anything about this video."
         )
 
         print(
             "Type 'exit' to close."
         )
 
-        
+        # ====================================================
         # CHAT LOOP
-        
+        # ====================================================
 
         while True:
 
@@ -586,6 +771,7 @@ def main():
             ).strip()
 
             if not question:
+
                 continue
 
             if question.lower() == "exit":
@@ -602,41 +788,42 @@ def main():
                     "\n🔎 Retrieving relevant context..."
                 )
 
-                answer = answer_question(
-                    retriever,
-                    llm,
-                    question,
+                answer = rag_chain.invoke(
+                    question
                 )
 
                 print(
                     "\n🤖 Assistant:\n"
                 )
 
-                # IMPORTANT:
-                # Print only clean text.
-                print(answer)
+                print(
+                    answer
+                )
 
             except Exception as e:
-
-                error_text = str(e)
 
                 print(
                     "\n❌ Error while answering:"
                 )
 
-                print(error_text)
+                print(
+                    str(e)
+                )
 
     except Exception as e:
 
         print(
-            "\n❌ Application failed:"
+            "\n❌ Application Error:\n"
         )
 
-        print(str(e))
+        print(
+            str(e)
+        )
 
 
-# 13. RUN APPLICATION
-
+# ============================================================
+# 16. RUN
+# ============================================================
 
 if __name__ == "__main__":
     main()
