@@ -34,9 +34,7 @@ from langchain_core.runnables import (
 from langchain_core.output_parsers import StrOutputParser
 
 
-# ============================================================
 # 1. ENVIRONMENT
-# ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 ENV_FILE = BASE_DIR / ".env"
@@ -54,9 +52,7 @@ if not GEMINI_API_KEY:
     )
 
 
-# ============================================================
 # 2. CONFIGURATION
-# ============================================================
 
 # FAISS indexes will be stored here.
 VECTOR_DB_DIR = BASE_DIR / "vectorstores"
@@ -72,9 +68,7 @@ CHUNK_OVERLAP = 200
 TOP_K = 4
 
 
-# ============================================================
 # 3. GEMINI MODELS
-# ============================================================
 
 embeddings = GoogleGenerativeAIEmbeddings(
     model="gemini-embedding-001",
@@ -87,9 +81,7 @@ llm = ChatGoogleGenerativeAI(
 )
 
 
-# ============================================================
 # 4. YOUTUBE VIDEO ID
-# ============================================================
 
 def extract_video_id(url: str) -> str:
     """
@@ -134,9 +126,7 @@ def extract_video_id(url: str) -> str:
     )
 
 
-# ============================================================
 # 5. GET TRANSCRIPT
-# ============================================================
 
 def get_transcript(video_id: str) -> str:
     """
@@ -191,9 +181,7 @@ def get_transcript(video_id: str) -> str:
         )
 
 
-# ============================================================
 # 6. TEXT SPLITTING
-# ============================================================
 
 def split_transcript(transcript: str):
 
@@ -207,9 +195,7 @@ def split_transcript(transcript: str):
     )
 
 
-# ============================================================
 # 7. RATE-LIMIT SAFE GEMINI EMBEDDING
-# ============================================================
 
 def generate_embeddings(documents):
     """
@@ -296,9 +282,8 @@ def generate_embeddings(documents):
     return all_vectors
 
 
-# ============================================================
+
 # 8. FAISS CACHE
-# ============================================================
 
 def get_vector_db_path(video_id: str) -> Path:
 
@@ -383,9 +368,7 @@ def load_vector_store(video_id: str):
     )
 
 
-# ============================================================
 # 9. INDEXING CHAIN FUNCTIONS
-# ============================================================
 
 def prepare_video(url: str):
 
@@ -407,10 +390,8 @@ def fetch_video_transcript(data):
         f"\n🎥 Video ID: {video_id}"
     )
 
-    # --------------------------------------------------------
     # IMPORTANT:
     # Don't embed the same video again.
-    # --------------------------------------------------------
 
     if index_exists(video_id):
 
@@ -473,9 +454,7 @@ def build_video_index(data):
 
     video_id = data["video_id"]
 
-    # --------------------------------------------------------
     # Load existing index
-    # --------------------------------------------------------
 
     if data["cached"]:
 
@@ -496,9 +475,7 @@ def build_video_index(data):
             "vector_store": vector_store,
         }
 
-    # --------------------------------------------------------
     # Create new index
-    # --------------------------------------------------------
 
     documents = data["documents"]
 
@@ -521,9 +498,7 @@ def build_video_index(data):
     }
 
 
-# ============================================================
 # 10. COMPLETE INDEXING CHAIN
-# ============================================================
 
 indexing_chain = (
     RunnableLambda(prepare_video)
@@ -533,9 +508,7 @@ indexing_chain = (
 )
 
 
-# ============================================================
 # 11. RETRIEVER
-# ============================================================
 
 def create_retriever(vector_store):
 
@@ -555,9 +528,7 @@ def format_docs(docs):
     )
 
 
-# ============================================================
 # 12. RAG PROMPT
-# ============================================================
 
 prompt = PromptTemplate(
     template="""
@@ -588,9 +559,7 @@ Answer:
 )
 
 
-# ============================================================
 # 13. CLEAN GEMINI OUTPUT
-# ============================================================
 
 def clean_response(content):
     """
@@ -649,9 +618,7 @@ def clean_response(content):
     return str(content).strip()
 
 
-# ============================================================
 # 14. COMPLETE RAG CHAIN
-# ============================================================
 
 def build_rag_chain(retriever):
 
@@ -674,9 +641,7 @@ def build_rag_chain(retriever):
     return rag_chain
 
 
-# ============================================================
 # 15. MAIN APPLICATION
-# ============================================================
 
 def main():
 
@@ -685,9 +650,7 @@ def main():
     print("                 🎥 VIDEO RAG CHAT")
     print("=" * 70)
 
-    # --------------------------------------------------------
     # Get YouTube URL
-    # --------------------------------------------------------
 
     url = input(
         "\nPaste YouTube video URL:\n> "
@@ -703,9 +666,7 @@ def main():
 
     try:
 
-        # ====================================================
         # INDEXING CHAIN
-        # ====================================================
 
         print(
             "\n🚀 Running indexing chain..."
@@ -719,9 +680,7 @@ def main():
             "vector_store"
         ]
 
-        # ====================================================
         # RETRIEVER
-        # ====================================================
 
         retriever = create_retriever(
             vector_store
@@ -731,9 +690,7 @@ def main():
             "\n✅ Retriever ready."
         )
 
-        # ====================================================
         # RAG CHAIN
-        # ====================================================
 
         rag_chain = build_rag_chain(
             retriever
@@ -743,9 +700,7 @@ def main():
             "\n✅ RAG chain created."
         )
 
-        # ====================================================
         # READY
-        # ====================================================
 
         print("\n")
         print("=" * 70)
@@ -760,9 +715,7 @@ def main():
             "Type 'exit' to close."
         )
 
-        # ====================================================
         # CHAT LOOP
-        # ====================================================
 
         while True:
 
@@ -821,9 +774,7 @@ def main():
         )
 
 
-# ============================================================
 # 16. RUN
-# ============================================================
 
 if __name__ == "__main__":
     main()
